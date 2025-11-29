@@ -1,32 +1,53 @@
-# Ansible Project: WordPress LAMP on Debian VM
+# Ansible WordPress LAMP Setup — Homework
 
-## Последовательность действий (при наличии хоста)
-Предполагаем хост — localhost (manual VM). Если external IP (e.g., 192.168.56.10):
-1. Edit inventory.yaml: Добавь hosts: 192.168.56.10 (ansible_connection: ssh, ansible_user: vagrant, ansible_ssh_private_key_file: ~/.vbox_priv).
+## Файлы проекта
+- inventory.yaml: YAML inventory (localhost or remote host).
+- wordpress-playbook.yaml: Playbook for LAMP + WordPress (latest stable).
+- ansible-run.log: Full verbose logs from run (PLAY RECAP ok=18 changed=7).
+- README.md: This file.
 
-2. Run: `ansible-playbook -i inventory.yaml wordpress-playbook.yaml -v -k` ( -k for SSH password if needed; -vvv for more verbose).
+## Последовательность действий по применению сценария
+Предполагаем хост — external VM IP (e.g., 192.168.56.10, from Vagrant or bridged network; user vagrant, SSH enabled via sudo apt install openssh-server).
 
-3. Ключи: -i (inventory), -v (verbose), -vvv (debug), --syntax-check (check only), -become (sudo, default in playbook).
+1. **Подготовка inventory (YAML)**:
+   - Edit inventory.yaml: Добавь remote host.
+     ```
+     all:
+       children:
+         webservers:
+           hosts:
+             192.168.56.10:  # IP хоста
+               ansible_connection: ssh
+               ansible_user: vagrant
+               ansible_ssh_private_key_file: ~/.vbox_priv  # Or password
+               ansible_python_interpreter: /usr/bin/python3
+     ```
+   - If password: ansible_ssh_pass: "vagrant" in hosts (or -k flag in run).
 
-## Файлы
-- inventory.yaml: YAML inventory for localhost (local connection).
-- wordpress-playbook.yaml: Playbook for LAMP + WordPress (vars: DB pass "password", WP DB "wordpress/wppuser/wppassword").
-- ansible-run.log: Logs from run (PLAY RECAP ok=18 changed=7).
+2. **Подготовка VM хоста** (one-time):
+   - SSH access: sudo apt update; sudo apt install openssh-server; sudo systemctl start ssh.
+   - Ansible in host: If no, install via playbook or manual (curl get-pip.py | python3 --user).
 
-## Run results
-- LAMP: apache2, mariadb-server, php 8.3+ installed.
-- MySQL: DB "wordpress", user "wpuser" with ALL privs.
-- WordPress: Downloaded latest, in /var/www/html/wordpress, wp-config.php configured, permissions www-data.
-- Test: curl http://localhost/wordpress — WP HTML OK.
-- Logs excerpt:
-  PLAY RECAP: ok=18 changed=7 failed=0 ignored=6
-  Apache: active (running)
-  MariaDB: active (running)
+3. **Run playbook**:
+   - From control node (your host or another VM): cd to playbook folder.
+   - Команда: `ansible-playbook -i inventory.yaml wordpress-playbook.yaml -vvv -become -k`
+     - **Ключи**:
+       - -i inventory.yaml: Use custom inventory (YAML).
+       - -v (or -vvv): Verbose (details tasks, apt output, errors).
+       - -become: Sudo for apt/service (yes in playbook, but explicit OK).
+       - -k: Prompt for SSH password (if no key; enter "vagrant").
+       - --syntax-check: Test YAML (dry-run, no changes).
+       - -e: Extra vars (e.g., -e "mysql_root_password=newpass").
+   - Logs: `ansible-playbook ... -v > ansible-run.log 2>&1` — save to file.
+   - Expected: 5-10 мин, PLAY RECAP ok=14+ changed=5+ (LAMP install, WP deploy).
 
-## Setup
-1. VM: Manual Debian 13 ISO in VirtualBox (vagrant/vagrant, sudo).
-2. Ansible: pip3 install --user ansible --break-system-packages.
-3. Repo: Trixie main + security (apt update no conflicts).
-4. Shared: /mnt/shared mounted from host ansible-hw folder.
+4. **Test**:
+   - SSH to хост: curl http://192.168.56.10/wordpress — WP HTML.
+   - Setup: http://IP/wordpress (wizard: DB "wordpress", user "wpuser", pass "wppassword").
 
-Git: git init, add ., commit -m "Ansible WP Complete".
+## Run results (localhost test)
+- LAMP: Apache2 active, MariaDB running, PHP 8.3+.
+- WordPress: /var/www/html/wordpress, wp-config.php ready.
+- Logs: See ansible-run.log (excerpt: PLAY RECAP ok=18 changed=7 ignored=6).
+
+Git: git init, add ., commit, push to GitHub.
